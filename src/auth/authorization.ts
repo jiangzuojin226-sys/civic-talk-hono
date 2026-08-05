@@ -59,8 +59,19 @@ export async function getAuthContext(
       image: session.user.image ?? null,
     },
     role: resolveRole(session.user.role),
-    // Better Auth admin plugin 在 banExpires 到期後會自動把 banned 改回 false，
-    // 所以直接信任 session.user.banned，不需要額外對照 banExpires。
+    // ⚠️ 本站刻意不開 admin plugin（見 createAuth.ts）。additionalFields 只讀取
+    // 原始欄位值，不附帶任何到期清除邏輯——banExpires 到期後自動把 banned 改回 false
+    // 是 admin plugin 的行為，本站沒有。
+    //
+    // 實際效果：banned=1 在本站是「永遠擋」，除非使用者去 vTaiwan-hono 登入一次，
+    // 讓 admin plugin 在 session 驗證時檢查 banExpires 並清掉旗標。
+    //
+    // 若需要本站自行處理暫時停權到期，改成：
+    //   const now = new Date()
+    //   const expired = session.user.banExpires && new Date(session.user.banExpires) <= now
+    //   banned: session.user.banned === true && !expired
+    // 目前 #11 只要求停權者無法寫入，fail-safe（偏向永遠擋）是可接受的；
+    // 若日後有大量暫時停權需求，再評估是否補上到期比對。
     banned: session.user.banned === true,
   }
 }
